@@ -15,6 +15,7 @@ namespace Microsoft.Samples.Kinect.KinectExplorer
     using System.Windows.Input;
     using System.Windows.Media;
     using System.Windows.Media.Imaging;
+    using System.Windows.Threading;
     using Microsoft.Kinect;
     using Microsoft.Samples.Kinect.WpfViewers;
 
@@ -101,10 +102,33 @@ namespace Microsoft.Samples.Kinect.KinectExplorer
             }
 
             var sensor = this.viewModel.KinectSensorManager.KinectSensor;
-            if (sensor == null)
+            if (sensor == null || sensor.Status != KinectStatus.Connected)
             {
                 MessageBox.Show("Kinect sensor not available");
                 return;
+            }
+
+            if (!sensor.ColorStream.IsEnabled)
+            {
+                sensor.ColorStream.Enable(ColorImageFormat.RgbResolution640x480Fps30);
+            }
+
+            if (!sensor.DepthStream.IsEnabled)
+            {
+                sensor.DepthStream.Enable(DepthImageFormat.Resolution320x240Fps30);
+            }
+
+            if (!sensor.IsRunning)
+            {
+                try
+                {
+                    sensor.Start();
+                }
+                catch (InvalidOperationException ex)
+                {
+                    MessageBox.Show(ex.Message, "Sensor start failed");
+                    return;
+                }
             }
 
             string name = this.RecordingNameBox.Text;
@@ -162,14 +186,19 @@ namespace Microsoft.Samples.Kinect.KinectExplorer
                 byte[] pixels = new byte[frame.PixelDataLength];
                 frame.CopyPixelDataTo(pixels);
 
-                var bitmap = BitmapSource.Create(frame.Width, frame.Height, 96, 96, System.Windows.Media.PixelFormats.Bgr32, null, pixels, frame.Width * 4);
-                var encoder = new PngBitmapEncoder();
-                encoder.Frames.Add(BitmapFrame.Create(bitmap));
-                string path = System.IO.Path.Combine(this.recordingPath, $"color_{this.frameIndex:D6}.png");
-                using (var fs = new System.IO.FileStream(path, System.IO.FileMode.Create))
+                this.Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    encoder.Save(fs);
-                }
+                    var bitmap = BitmapSource.Create(frame.Width, frame.Height, 96, 96, PixelFormats.Bgr32, null, pixels, frame.Width * 4);
+                    bitmap.Freeze();
+
+                    var encoder = new PngBitmapEncoder();
+                    encoder.Frames.Add(BitmapFrame.Create(bitmap));
+                    string path = Path.Combine(this.recordingPath, $"color_{this.frameIndex:D6}.png");
+                    using (var fs = new FileStream(path, FileMode.Create))
+                    {
+                        encoder.Save(fs);
+                    }
+                }), DispatcherPriority.Background);
             }
         }
 
@@ -196,14 +225,19 @@ namespace Microsoft.Samples.Kinect.KinectExplorer
                     pixels[i] = (ushort)depth[i];
                 }
 
-                var bitmap = BitmapSource.Create(frame.Width, frame.Height, 96, 96, System.Windows.Media.PixelFormats.Gray16, null, pixels, frame.Width * 2);
-                var encoder = new PngBitmapEncoder();
-                encoder.Frames.Add(BitmapFrame.Create(bitmap));
-                string path = System.IO.Path.Combine(this.recordingPath, $"depth_{this.frameIndex:D6}.png");
-                using (var fs = new System.IO.FileStream(path, System.IO.FileMode.Create))
+                this.Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    encoder.Save(fs);
-                }
+                    var bitmap = BitmapSource.Create(frame.Width, frame.Height, 96, 96, PixelFormats.Gray16, null, pixels, frame.Width * 2);
+                    bitmap.Freeze();
+
+                    var encoder = new PngBitmapEncoder();
+                    encoder.Frames.Add(BitmapFrame.Create(bitmap));
+                    string path = Path.Combine(this.recordingPath, $"depth_{this.frameIndex:D6}.png");
+                    using (var fs = new FileStream(path, FileMode.Create))
+                    {
+                        encoder.Save(fs);
+                    }
+                }), DispatcherPriority.Background);
             }
 
             this.frameIndex++;
