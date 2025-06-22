@@ -152,24 +152,31 @@ namespace Microsoft.Samples.Kinect.KinectExplorer
                 return;
             }
 
-            using (var frame = e.OpenColorImageFrame())
+            try
             {
-                if (frame == null)
+                using (var frame = e.OpenColorImageFrame())
                 {
-                    return;
-                }
+                    if (frame == null)
+                    {
+                        return;
+                    }
 
-                byte[] pixels = new byte[frame.PixelDataLength];
-                frame.CopyPixelDataTo(pixels);
+                    byte[] pixels = new byte[frame.PixelDataLength];
+                    frame.CopyPixelDataTo(pixels);
 
-                var bitmap = BitmapSource.Create(frame.Width, frame.Height, 96, 96, System.Windows.Media.PixelFormats.Bgr32, null, pixels, frame.Width * 4);
-                var encoder = new PngBitmapEncoder();
-                encoder.Frames.Add(BitmapFrame.Create(bitmap));
-                string path = System.IO.Path.Combine(this.recordingPath, $"color_{this.frameIndex:D6}.png");
-                using (var fs = new System.IO.FileStream(path, System.IO.FileMode.Create))
-                {
-                    encoder.Save(fs);
+                    var bitmap = BitmapSource.Create(frame.Width, frame.Height, 96, 96, System.Windows.Media.PixelFormats.Bgr32, null, pixels, frame.Width * 4);
+                    var encoder = new PngBitmapEncoder();
+                    encoder.Frames.Add(BitmapFrame.Create(bitmap));
+                    string path = System.IO.Path.Combine(this.recordingPath, $"color_{this.frameIndex:D6}.png");
+                    using (var fs = new System.IO.FileStream(path, System.IO.FileMode.Create))
+                    {
+                        encoder.Save(fs);
+                    }
                 }
+            }
+            catch (System.Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("Error capturing color frame: " + ex.Message);
             }
         }
 
@@ -180,33 +187,40 @@ namespace Microsoft.Samples.Kinect.KinectExplorer
                 return;
             }
 
-            using (var frame = e.OpenDepthImageFrame())
+            try
             {
-                if (frame == null)
+                using (var frame = e.OpenDepthImageFrame())
                 {
-                    return;
+                    if (frame == null)
+                    {
+                        return;
+                    }
+
+                    short[] depth = new short[frame.PixelDataLength];
+                    frame.CopyPixelDataTo(depth);
+
+                    ushort[] pixels = new ushort[frame.Width * frame.Height];
+                    for (int i = 0; i < depth.Length; i++)
+                    {
+                        pixels[i] = (ushort)depth[i];
+                    }
+
+                    var bitmap = BitmapSource.Create(frame.Width, frame.Height, 96, 96, System.Windows.Media.PixelFormats.Gray16, null, pixels, frame.Width * 2);
+                    var encoder = new PngBitmapEncoder();
+                    encoder.Frames.Add(BitmapFrame.Create(bitmap));
+                    string path = System.IO.Path.Combine(this.recordingPath, $"depth_{this.frameIndex:D6}.png");
+                    using (var fs = new System.IO.FileStream(path, System.IO.FileMode.Create))
+                    {
+                        encoder.Save(fs);
+                    }
                 }
 
-                short[] depth = new short[frame.PixelDataLength];
-                frame.CopyPixelDataTo(depth);
-
-                ushort[] pixels = new ushort[frame.Width * frame.Height];
-                for (int i = 0; i < depth.Length; i++)
-                {
-                    pixels[i] = (ushort)depth[i];
-                }
-
-                var bitmap = BitmapSource.Create(frame.Width, frame.Height, 96, 96, System.Windows.Media.PixelFormats.Gray16, null, pixels, frame.Width * 2);
-                var encoder = new PngBitmapEncoder();
-                encoder.Frames.Add(BitmapFrame.Create(bitmap));
-                string path = System.IO.Path.Combine(this.recordingPath, $"depth_{this.frameIndex:D6}.png");
-                using (var fs = new System.IO.FileStream(path, System.IO.FileMode.Create))
-                {
-                    encoder.Save(fs);
-                }
+                this.frameIndex++;
             }
-
-            this.frameIndex++;
+            catch (System.Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("Error capturing depth frame: " + ex.Message);
+            }
         }
     }
 
