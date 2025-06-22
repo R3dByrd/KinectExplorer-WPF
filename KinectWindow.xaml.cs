@@ -145,7 +145,7 @@ namespace Microsoft.Samples.Kinect.KinectExplorer
             this.StopRecordingButton.IsEnabled = false;
         }
 
-        private void SensorColorFrameReady(object sender, ColorImageFrameReadyEventArgs e)
+        private async void SensorColorFrameReady(object sender, ColorImageFrameReadyEventArgs e)
         {
             if (!this.isRecording)
             {
@@ -164,14 +164,21 @@ namespace Microsoft.Samples.Kinect.KinectExplorer
                     byte[] pixels = new byte[frame.PixelDataLength];
                     frame.CopyPixelDataTo(pixels);
 
-                    var bitmap = BitmapSource.Create(frame.Width, frame.Height, 96, 96, System.Windows.Media.PixelFormats.Bgr32, null, pixels, frame.Width * 4);
-                    var encoder = new PngBitmapEncoder();
-                    encoder.Frames.Add(BitmapFrame.Create(bitmap));
-                    string path = System.IO.Path.Combine(this.recordingPath, $"color_{this.frameIndex:D6}.png");
-                    using (var fs = new System.IO.FileStream(path, System.IO.FileMode.Create))
+                    int width = frame.Width;
+                    int height = frame.Height;
+                    int index = this.frameIndex;
+                    string path = System.IO.Path.Combine(this.recordingPath, $"color_{index:D6}.png");
+
+                    await System.Threading.Tasks.Task.Run(() =>
                     {
-                        encoder.Save(fs);
-                    }
+                        var bitmap = BitmapSource.Create(width, height, 96, 96, System.Windows.Media.PixelFormats.Bgr32, null, pixels, width * 4);
+                        var encoder = new PngBitmapEncoder();
+                        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+                        using (var fs = new System.IO.FileStream(path, System.IO.FileMode.Create))
+                        {
+                            encoder.Save(fs);
+                        }
+                    });
                 }
             }
             catch (System.Exception ex)
@@ -180,7 +187,7 @@ namespace Microsoft.Samples.Kinect.KinectExplorer
             }
         }
 
-        private void SensorDepthFrameReady(object sender, DepthImageFrameReadyEventArgs e)
+        private async void SensorDepthFrameReady(object sender, DepthImageFrameReadyEventArgs e)
         {
             if (!this.isRecording)
             {
@@ -205,17 +212,22 @@ namespace Microsoft.Samples.Kinect.KinectExplorer
                         pixels[i] = (ushort)depth[i];
                     }
 
-                    var bitmap = BitmapSource.Create(frame.Width, frame.Height, 96, 96, System.Windows.Media.PixelFormats.Gray16, null, pixels, frame.Width * 2);
-                    var encoder = new PngBitmapEncoder();
-                    encoder.Frames.Add(BitmapFrame.Create(bitmap));
-                    string path = System.IO.Path.Combine(this.recordingPath, $"depth_{this.frameIndex:D6}.png");
-                    using (var fs = new System.IO.FileStream(path, System.IO.FileMode.Create))
-                    {
-                        encoder.Save(fs);
-                    }
-                }
+                    int width = frame.Width;
+                    int height = frame.Height;
+                    int index = System.Threading.Interlocked.Increment(ref this.frameIndex) - 1;
+                    string path = System.IO.Path.Combine(this.recordingPath, $"depth_{index:D6}.png");
 
-                this.frameIndex++;
+                    await System.Threading.Tasks.Task.Run(() =>
+                    {
+                        var bitmap = BitmapSource.Create(width, height, 96, 96, System.Windows.Media.PixelFormats.Gray16, null, pixels, width * 2);
+                        var encoder = new PngBitmapEncoder();
+                        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+                        using (var fs = new System.IO.FileStream(path, System.IO.FileMode.Create))
+                        {
+                            encoder.Save(fs);
+                        }
+                    });
+                }
             }
             catch (System.Exception ex)
             {
